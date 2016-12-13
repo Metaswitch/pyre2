@@ -27,7 +27,6 @@
  */
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#include <iostream>
 #include <cstddef>
 
 #include <string>
@@ -113,7 +112,9 @@ static PyMethodDef regexp_methods[] = {
     "    Matches zero or more characters at the beginning of the string"
   },
   {"replace", (PyCFunction)regexp_replace, METH_VARARGS | METH_KEYWORDS,
-    ""
+    "replace(input_string, replacement_string, match_string) --> updated input string.\n"
+    "   Scans through input_string, replacing all non-overlapping occurrences "
+    "(left to right) of the match_string with the replacement_string."
   },
   {"fullmatch", (PyCFunction)regexp_fullmatch, METH_VARARGS | METH_KEYWORDS,
     "fullmatch(string[, pos[, endpos]]) --> match object or None.\n"
