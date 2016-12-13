@@ -27,7 +27,6 @@
  */
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-
 #include <cstddef>
 
 #include <string>
@@ -86,6 +85,7 @@ static PyObject* regexp_fullmatch(RegexpObject2* self, PyObject* args, PyObject*
 static PyObject* regexp_test_search(RegexpObject2* self, PyObject* args, PyObject* kwds);
 static PyObject* regexp_test_match(RegexpObject2* self, PyObject* args, PyObject* kwds);
 static PyObject* regexp_test_fullmatch(RegexpObject2* self, PyObject* args, PyObject* kwds);
+static PyObject* regexp_replace(RegexpObject2* self, PyObject* args, PyObject* kwds);
 static void match_dealloc(MatchObject2* self);
 static PyObject* create_match(PyObject* re, PyObject* string, long pos, long endpos, StringPiece* groups);
 static PyObject* match_group(MatchObject2* self, PyObject* args);
@@ -110,6 +110,11 @@ static PyMethodDef regexp_methods[] = {
   {"match", (PyCFunction)regexp_match, METH_VARARGS | METH_KEYWORDS,
     "match(string[, pos[, endpos]]) --> match object or None.\n"
     "    Matches zero or more characters at the beginning of the string"
+  },
+  {"replace", (PyCFunction)regexp_replace, METH_VARARGS | METH_KEYWORDS,
+    "replace(input_string, replacement_string, match_string) --> updated input string.\n"
+    "   Scans through input_string, replacing all non-overlapping occurrences "
+    "(left to right) of the match_string with the replacement_string."
   },
   {"fullmatch", (PyCFunction)regexp_fullmatch, METH_VARARGS | METH_KEYWORDS,
     "fullmatch(string[, pos[, endpos]]) --> match object or None.\n"
@@ -457,6 +462,39 @@ _do_search(RegexpObject2* self, PyObject* args, PyObject* kwds, RE2::Anchor anch
 }
 
 static PyObject*
+_do_replace(RegexpObject2* self, PyObject* args, PyObject* kwds)
+{
+  PyObject* string;
+  PyObject* rewrite;
+  PyObject* pattern;
+
+  // Typecasting each argument as a PyString.
+  // Each O! represents a single &PyString, &variable pair.
+  if (!PyArg_ParseTuple(args, "O!O!O!",
+                        &PyString_Type, &string,
+                        &PyString_Type, &rewrite,
+                        &PyString_Type, &pattern))
+  {
+    return NULL;
+  }
+
+  const char* value = PyString_AS_STRING(string);
+  std::string match_text(value);
+
+  const char* str_pattern = PyString_AS_STRING(pattern);
+  const char* replacement_text = PyString_AS_STRING(rewrite);
+  Py_ssize_t length = PyString_GET_SIZE(rewrite);
+
+  // Updates the match_text argument.
+  int m = self->re2_obj->GlobalReplace(
+                                  &match_text,
+                                  re2::RE2(str_pattern),
+                                  StringPiece(replacement_text, (int)length));
+
+  return PyString_FromString(match_text.c_str());
+}
+
+static PyObject*
 regexp_search(RegexpObject2* self, PyObject* args, PyObject* kwds)
 {
   return _do_search(self, args, kwds, RE2::UNANCHORED, true);
@@ -472,6 +510,12 @@ static PyObject*
 regexp_fullmatch(RegexpObject2* self, PyObject* args, PyObject* kwds)
 {
   return _do_search(self, args, kwds, RE2::ANCHOR_BOTH, true);
+}
+
+static PyObject*
+regexp_replace(RegexpObject2* self, PyObject* args, PyObject* kwds)
+{
+  return _do_replace(self, args, kwds);
 }
 
 static PyObject*
